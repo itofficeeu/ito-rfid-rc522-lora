@@ -1,3 +1,25 @@
+/*
+ * This is a test program for collecting data from SPI and sending it via Lora 
+ * to thethingsnetwork.org.
+ * 
+ * The program works in its basics. It does not send any data except for the 
+ * third and fourth byte read from the RFID unit. 
+ * 
+ * The bytes are send in the Cayenne channel 21 and 22 without making them 
+ * pretty in any form. This means; They are put in as a single byte in 
+ * the sender, and comes out as a double byte on thethingsnetwork.org. 
+ * Both hexadecimal values converts to the same decimal value. 
+ * Not pretty, but proves that it works to let the  Heltec WiFi Lora 32 
+ * collect data via SPI and send it via Lora, used the given pins. It is stable.
+ * - Hence, it proves that the pins used for the SPI connection does 
+ * not conflict with the pins used for sending Lora.
+ * 
+ * The data send, are picked from the last RFID card read.
+ * 
+ * The Lora sender is set to do frequenzy hopping. This means that only each 
+ * third sending will hit SF7 (868.1MHz).
+ */
+
 #include <CayenneLPP.h>
 #include <lmic.h>
 #include <hal/hal.h>
@@ -27,7 +49,8 @@ static const u1_t PROGMEM APPSKEY[16] =
 { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 /* LoRaWAN end-device address (DevAddr) */
-static const u4_t DEVADDR = { 0x00000000 };
+static const u4_t DEVADDR = 
+{ 0x00000000 };
 
 /* These folowing callbacks are only used in over-the-air activation, 
  * so they are left empty here (we cannot leave them out completely unless
@@ -143,8 +166,15 @@ void do_send(osjob_t* j)
   {
     lpp.reset();
 
-    //uint8_t wakeup_reason = 9;
-    //lpp.addAnalogInput(20, wakeup_reason);
+    uint8_t wakeup_reason = 9;
+    lpp.addAnalogInput(20, wakeup_reason);
+
+    Serial.println("");
+    Serial.println(mfrc522.uid.uidByte[2], HEX);
+    Serial.println(mfrc522.uid.uidByte[3], HEX);
+    Serial.println("");
+    lpp.addAnalogInput(21, mfrc522.uid.uidByte[2]);
+    lpp.addAnalogInput(22, mfrc522.uid.uidByte[3]);
 
     /* Prepare upstream data transmission at the next possible time. */
     LMIC_setTxData2(1, lpp.getBuffer(), lpp.getSize(), 0);
@@ -260,6 +290,8 @@ int DisplayPrintUid(int x, int y, MFRC522 mfrc522){
  */
 void LoopContent()
 {
+  os_runloop_once();
+  
   /* Look for new cards */
   if ( ! mfrc522.PICC_IsNewCardPresent()) {
     //Serial.print("iNCP-");
@@ -305,8 +337,10 @@ void LoopContent()
 #endif
 #endif
 
+  //do_send(&sendjob);
+
   /* Make sure LMIC is ran too - only done if return is not called before now */
-  os_runloop_once();
+  //os_runloop_once();
 }
 
 /**
